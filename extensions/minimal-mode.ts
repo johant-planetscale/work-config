@@ -135,10 +135,27 @@ export default function (pi: ExtensionAPI) {
 		if (ctx.hasUI) ctx.ui.setStatus("minimal", summaryText(turn));
 	});
 
-	pi.on("message_end", async (event, _ctx) => {
-		if (event.message?.role === "assistant" && hasThinkingContent(event.message)) {
+	pi.on("message_end", async (event, ctx) => {
+		const msg = event.message;
+		if (msg?.role !== "assistant") return;
+		if (hasThinkingContent(msg)) {
 			turn.hadThinking = true;
 		}
+		// Strip thinking from the stored message so the settled re-render adds no
+		// thinking run and no surrounding spacers — removes the stray blank lines
+		// the markdown transformer alone leaves behind.
+		//
+		// Guarded: Anthropic and Bedrock require prior thinking blocks (with
+		// signatures) to be preserved alongside tool_use in later requests, so
+		// stripping could cause API rejections there. Skip for those providers.
+		const provider = ctx.model?.provider ?? "";
+		if (provider === "anthropic" || provider === "amazon-bedrock") return;
+		if (!Array.isArray(msg.content) || !msg.content.some((c) => c?.type === "thinking")) return;
+		const stripped = {
+			...msg,
+			content: msg.content.filter((c) => c?.type !== "thinking"),
+		};
+		return { message: stripped };
 	});
 
 	// Stamp the summary BEFORE the next assistant message enters the session.
