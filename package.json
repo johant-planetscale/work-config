@@ -1,0 +1,14 @@
+{
+  "name": "work-config",
+  "version": "0.1.0",
+  "description": "Personal pi extensions and configuration.",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./extensions"]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  }
+}
