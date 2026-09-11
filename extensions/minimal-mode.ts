@@ -124,10 +124,25 @@ export default function (pi: ExtensionAPI) {
 
 	// --- Turn lifecycle ------------------------------------------------------
 
-	pi.on("before_agent_start", async (_event, ctx) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		turn = { toolCalls: 0, hadThinking: false };
 		summaryWritten = false;
 		if (ctx.hasUI) ctx.ui.setStatus("minimal", summaryText(turn) || "…");
+
+		// GLM (via Fireworks) tends to narrate its reasoning as plain text
+		// instead of using native thinking blocks. That text is indistinguishable
+		// from a real answer, so the minimal-mode renderer can't hide it. Nudge it
+		// to keep reasoning internal and deliver only conclusions.
+		const model = ctx.model;
+		const isGlm =
+			model?.provider === "fireworks" &&
+			typeof model?.id === "string" &&
+			model.id.toLowerCase().includes("glm");
+		if (isGlm) {
+			const nudge =
+				"\n\nDo not narrate your reasoning process in your response. Do not walk the user through your thinking step by step. Deliver only the conclusion and the information asked for. If you need to reason, do it silently and report only the result.";
+			return { systemPrompt: event.systemPrompt + nudge };
+		}
 	});
 
 	pi.on("tool_execution_start", async (_event, ctx) => {
