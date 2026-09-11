@@ -30,6 +30,17 @@ import {
 	createWriteTool,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Text } from "@earendil-works/pi-tui";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+// ---------------------------------------------------------------------------
+// External skill discovery (the-process)
+// ---------------------------------------------------------------------------
+// the-process ships skills but its installer has no pi path. Contribute its
+// skills/ directory via resources_discover so pi scans the checkout directly.
+// Override the checkout location with THE_PROCESS_DIR; default is the standard
+// clone path. The dir is existence-checked so a missing checkout is a no-op.
+const THE_PROCESS_DIR = process.env.THE_PROCESS_DIR || join(process.env.HOME || "", "code", "the-process");
 
 // ---------------------------------------------------------------------------
 // Built-in tool delegation (cached per cwd)
@@ -120,6 +131,18 @@ export default function (pi: ExtensionAPI) {
 	pi.registerMarkdownTransformer((markdown, { messageType }) => {
 		if (messageType === "assistant-thinking") return "";
 		return markdown;
+	});
+
+	// --- External skills: the-process --------------------------------------
+	// the-process's installer detects Claude/Codex/Cursor but not pi, so its
+	// skills never land in ~/.pi/agent/skills. Point pi at the checkout's
+	// skills/ dir directly so they load and track the repo.
+	pi.on("resources_discover", async (_event, _ctx) => {
+		const skillsDir = join(THE_PROCESS_DIR, "skills");
+		if (existsSync(skillsDir)) {
+			return { skillPaths: [skillsDir] };
+		}
+		return {};
 	});
 
 	// --- Turn lifecycle ------------------------------------------------------
